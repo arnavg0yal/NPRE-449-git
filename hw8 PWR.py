@@ -117,7 +117,7 @@ def frictionfactor(re):
 def deltaP(rho, f, drho):
     var = 0.5*f*(G**2/rho)*(wet_perim/area) + rho*g
     if drho != 0:
-        return -1*(var + .5*(G**2)/drho)
+        return -1*(var + (G**2)*drho)
     else:
         return -1*var
 
@@ -184,16 +184,16 @@ if option == 1 :
         for i in range(1, len(zs)):
             #print(i)
             
-            '''
+        
             if i != 1 :
-                drho = (rhos[i-1]-rhos[i-2])/deltaz
+                drho = ((1/(rhos[i-1]))-(1/rhos[i-2])) * (1/(deltaz))
             else:
                 drho = 0
             
-            print(f"drho = {drho}")
-            '''
+            #print(f"drho = {drho}")
+            
 
-            deltaPCurrent = deltaP(rhos[0], frics[0], 0) #delta P / delta z
+            deltaPCurrent = deltaP(rhos[0], frics[0], 0) #delta P / delta z using constant properties
             #print(f"delta P = {deltaPCurrent}")
 
             newP = deltaPCurrent*deltaz + Ps[i-1]
@@ -216,11 +216,11 @@ if option == 1 :
             T_f_s.append(newT_f)
             hs.append(newh)
 
-            #rhos.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="rho"))
+            rhos.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="rho"))
             #print(rhos[i])
-            #mus.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="dynVisc"))
-            #Res.append(reynolds(mus[i]))
-            #frics.append(frictionfactor(Res[i]))
+            mus.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="dynVisc"))
+            Res.append(reynolds(mus[i]))
+            frics.append(frictionfactor(Res[i]))
             
             #print(f"P_{i} = {Ps[i]}, T_f_{i} = {T_f_s[i]}, Xe_{i}={Xes[i]}")
             #print(f"rho_{i} = {rhos[i]}, mu_{i} = {mus[i]}")
@@ -258,13 +258,13 @@ if option == 1 :
         #ax.plot(qlins, zs,  label="q\'")
         #ax.plot(np.array(Ps)/(10**6), zs, label="Fluid Pressure")
 
-        #ax.plot(Tsats, zs, label="Saturation Temperature")
-        ax.plot(T_f_s, zs, label="Fluid Temperature")
-        #ax.plot(T_f_c, zs, label="Centerline Temperature")
-        #ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
         ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
+        ax.plot(T_f_s, zs, label="Fluid Temperature")
+        #ax.plot(T_f_c, zs, label="Centerline Temperature")        
+        #ax.plot(Tsats, zs, label="Saturation Temperature")
+        #ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
 
-        #ax.plot(Xes, zs, label=f"Equilibrium Quality - $\Delta z$ = {deltaz:0.2f}m")
+        #ax.plot(Xes, zs, label=f"Equilibrium Quality")
 
         #ax.plot(rhos, zs, label="Densities")
         #ax.plot(mus, zs, label="Dynamic Viscosities")
@@ -275,7 +275,7 @@ if option == 1 :
 
 #ax.set_xscale('log')
 ax.set_ylabel(f"Vertical height [m]")
-ax.set_xlabel(f"Equilibrium quality")
+ax.set_xlabel(f"Temperature $^\circ$C")
 ax.grid()
 ax.legend()
 plt.tight_layout()
