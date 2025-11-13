@@ -309,13 +309,13 @@ if option == 1 :
         #ax.plot(qlins, zs,  label="q\'")
         #ax.plot(np.array(Ps)/(10**6), zs, label="Fluid Pressure")
 
-        ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
-        ax.plot(T_f_s, zs, label="Fluid Temperature")
-        ax.plot(T_f_c, zs, label="Centerline Temperature")        
-        ax.plot(Tsats, zs, label="Saturation Temperature")
-        #ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
+        # ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
+        # ax.plot(T_f_s, zs, label="Fluid Temperature")
+        # ax.plot(T_f_c, zs, label="Centerline Temperature")        
+        # ax.plot(Tsats, zs, label="Saturation Temperature")
+        # ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
 
-        #ax.plot(Xes, zs, label=f"Equilibrium Quality")
+        # ax.plot(Xes, zs, label=f"Equilibrium Quality")
 
         #ax.plot(rhos, zs, label="Densities")
         #ax.plot(mus, zs, label="Dynamic Viscosities")
