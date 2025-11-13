@@ -172,7 +172,7 @@ fig,ax = plt.subplots()
 
 if option == 1 :
 
-    for numOfPoints in [400]:#[5, 10, 20, 50,200]:
+    for numOfPoints in [5, 10, 20, 100, 400]:
         
         ###########################################################
 
@@ -302,7 +302,7 @@ if option == 1 :
                 L2 = -2*(A1*T_f_s[i] + A2*Tsats[i])
                 L3 = A1*(T_f_s[i]**2) + A2*(Tsats[i]**2) - ((k_clad*c_5/r_clad_o)**2)
                 #print(f"F = {F}, S = {S:0.2f}, hnb={hnb:0.2f}, A1 = {A1:0.2f}, A2 = {A2:0.2f}, L1 = {L1:0.2f}, L2 = {L2:0.2f}, L3 = {L3:0.2f}")
-                T_w_min = ((-L2-((L2**2 - (4*L1*L3))**0.5))/(2*L1))
+                #T_w_min = ((-L2-((L2**2 - (4*L1*L3))**0.5))/(2*L1))
                 T_w_plus = ((-L2 +((L2**2 - (4*L1*L3))**0.5))/(2*L1))
                 #print("Wall temp", T_w_plus)
                 c_6 = T_w_plus - (c_5*np.log(r_clad_o))
@@ -325,11 +325,11 @@ if option == 1 :
 
         #ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
         #ax.plot(T_f_s, zs, label="Fluid Temperature")
-        ax.plot(T_f_c, zs, label="Centerline Temperature")        
+        #ax.plot(T_f_c, zs, label="Centerline Temperature")        
         #ax.plot(Tsats, zs, label="Saturation Temperature")
         # ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
 
-        # ax.plot(Xes, zs, label=f"Equilibrium Quality")
+        ax.plot(Xes, zs, label=f"$\Delta z$ = {deltaz:0.2f} m")
 
         #ax.plot(rhos, zs, label="Densities")
         #ax.plot(mus, zs, label="Dynamic Viscosities")
