@@ -28,7 +28,11 @@ wet_perim = np.pi * D_rod #m
 area = pitch**2 - (np.pi*((D_rod/2)**2))
 D_equiv = 4*area / wet_perim
 
+MM_water = 18.02 #g/mol
+
 water = Fluid(FluidsList.Water).unspecify_phase()
+critP = water.critical_pressure
+
 ############################################
 
 def tempQualProp(temp, qual, prop):
@@ -40,7 +44,7 @@ def tempQualProp(temp, qual, prop):
     qual: int
         Number between 0 and 100 for flow quality
     prop: str
-        one of the properties in the following list["vol", "intEnrg", "dynVisc", "enth", "rho"]
+        one of the properties in the following list["vol", "intEnrg", "dynVisc", "enth", "rho", "pr", "k"]
     """
     water_state = water.with_state(Input.temperature(temp), Input.quality(qual))
     if prop == "vol":
@@ -53,6 +57,11 @@ def tempQualProp(temp, qual, prop):
         return water_state.enthalpy #J/kg
     elif prop == "rho":
         return water_state.density #kg / m3
+    elif prop == "pr":
+        return water_state.prandtl
+    elif prop == "k":
+        return water_state.conductivity
+    
 
 def presQualProp(pres, qual, prop):
     """
@@ -63,7 +72,7 @@ def presQualProp(pres, qual, prop):
     qual: int
         Number between 0 and 100 for flow quality
     prop: str
-        one of the properties in the following list["vol", "intEnrg", "dynVisc", "enth", "rho"]
+        one of the properties in the following list["vol", "intEnrg", "dynVisc", "enth", "rho", "pr", "k"]
     """
     water_state = water.with_state(Input.pressure(pres), Input.quality(qual))
 
@@ -77,6 +86,10 @@ def presQualProp(pres, qual, prop):
         return water_state.enthalpy # J/kg
     elif prop =="rho":
         return water_state.density #kg / m3
+    elif prop == "pr":
+        return water_state.prandtl
+    elif prop == "k":
+        return water_state.conductivity
 
 def tempPresProp(temp, pres, prop):
     """
@@ -87,7 +100,7 @@ def tempPresProp(temp, pres, prop):
     temp: int
         Degrees celsius
     prop: str
-        one of the properties in the following list["vol", "intEnrg", "dynVisc", "enth", "rho"]
+        one of the properties in the following list["vol", "intEnrg", "dynVisc", "enth", "rho", "pr", "k"]
     """
     water_state = water.with_state(Input.temperature(temp), Input.pressure(pres))
 
@@ -101,6 +114,10 @@ def tempPresProp(temp, pres, prop):
         return water_state.enthalpy # J/kg
     elif prop =="rho":
         return water_state.density #kg / m3
+    elif prop == "pr":
+        return water_state.prandtl
+    elif prop == "k":
+        return water_state.conductivity
 
 def calchfg(temp=0, pres=0):
     if temp != 0:
@@ -140,11 +157,10 @@ def calcNewTemp(Xe, pressure):
     
     return corresTemp, h # degrees Celsius
     
+def dittusBoelter(k, re, pr):
+    return 0.023 * re**(0.8) * pr**0.4 * (k/D_equiv)
 
 #############################
-
-
-
 ###############################
 
 option = 1 # 1 : PWR, 2: BWR
@@ -153,7 +169,7 @@ fig,ax = plt.subplots()
 
 if option == 1 :
 
-    for numOfPoints in [200]:#[5, 10, 20, 50,200]:
+    for numOfPoints in [400]:#[5, 10, 20, 50,200]:
         
         ###########################################################
 
@@ -172,6 +188,13 @@ if option == 1 :
         frics = [frictionfactor(Res[0])]
 
         hs = [tempPresProp(T_f_low, P_low, "enth")]
+        hfs = [presQualProp(P_low, 0, "enth")]
+        hfgs = [calchfg(pres=P_low)]
+        Prs = [tempPresProp(T_f_low, P_low, "pr")]
+        ks = [tempPresProp(T_f_low, P_low, "k")]
+        htcs = [dittusBoelter(ks[0], Res[0], Prs[0])]
+
+        Tsats = [water.dew_point_at_pressure(P_low).temperature]
 
         ##########################################################
 
@@ -180,6 +203,21 @@ if option == 1 :
         qlins = q0*np.cos(np.pi*(zs/He)) # W / m
         qdoubles = qlins/(np.pi*D_fuel)
         #print(qlins[:10])
+
+        ##########################################################
+
+        c_3 = (-qlins[0])/(2*np.pi*k_gap)
+        c_5 = k_gap * c_3 / k_clad
+        c_6 = (c_5*((-k_clad/(htcs[0]*r_clad_o)) - np.log(r_clad_o))) + T_f_s[0]
+        c_4 = (c_3 *np.log(r_clad_i)*((k_gap/k_clad)-1))+c_6
+        c_2 = (c_3*np.log(r_fuel)) + c_4 + (qlins[0]/(4*np.pi*k_fuel))
+
+        T_f_c = [c_2]
+        T_c_in = [c_3*np.log(r_clad_i) + c_4]
+        T_c_out = [c_5*np.log(r_clad_o) + c_6]
+
+        ##########################################################
+
 
         for i in range(1, len(zs)):
             #print(i)
@@ -201,19 +239,23 @@ if option == 1 :
             Ps.append(newP)
 
             newhfg = calchfg(pres=Ps[i])
+            newhf = presQualProp(Ps[i], 0, "enth")
             #print(f"newhfg = {newhfg}")
             qdouble = qdoubles[i]
 
             #print(qdouble, qdouble*wet_perim/G*area)
-            newXe = ((qdouble*wet_perim*deltaz)/(area*G*newhfg))+Xes[i-1]
+            newXe = ((((qdouble*wet_perim*deltaz)/(area*G))-(newhf-hfs[i-1])-(Xes[i-1]*(newhfg-hfgs[i-1])))/newhfg)+Xes[i-1]
 
             #print(f"hfg = {newhfg}, Xe = {newXe}")
             Xes.append(newXe)
+            hfgs.append(newhfg)
+            hfs.append(newhf)
 
             
             
             newT_f, newh = calcNewTemp(Xes[i], pressure=Ps[i])
             T_f_s.append(newT_f)
+            Tsats.append(water.dew_point_at_pressure(Ps[i]).temperature)
             hs.append(newh)
 
             rhos.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="rho"))
@@ -221,47 +263,56 @@ if option == 1 :
             mus.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="dynVisc"))
             Res.append(reynolds(mus[i]))
             frics.append(frictionfactor(Res[i]))
+            ks.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="k"))
+            Prs.append(tempPresProp(pres=Ps[i], temp=T_f_s[i], prop="pr"))
+            htcs.append(dittusBoelter(ks[i], Res[i], Prs[i]))
             
             #print(f"P_{i} = {Ps[i]}, T_f_{i} = {T_f_s[i]}, Xe_{i}={Xes[i]}")
             #print(f"rho_{i} = {rhos[i]}, mu_{i} = {mus[i]}")
-
-        #########################################
-        ###Temperature inside the fuel rod#######
+            if Xes[i] < 0:
+                chi = 0
+            elif Xes[i] > 1:
+                chi = 1
+            else:
+                chi = Xes[i]
+            #########################################
+            ###Temperature inside the fuel rod#######
         
-
-        T_c_in = []
-        T_c_out = []
-        T_f_c = []
-
-        for j in range(len(zs)):
-            curh = hs[j]
-            curT_f = T_f_s[j]
-            qlin = qlins[j]
-
-            c_3 = (-qlin)/(2*np.pi*k_gap)
+            c_3 = (-qlins[i])/(2*np.pi*k_gap)
             c_5 = k_gap * c_3 / k_clad
-            c_6 = (c_5*((-k_clad/(curh*r_clad_o)) - np.log(r_clad_o))) + curT_f
+            if T_c_out[i-1] < Tsats[i-1]:
+                c_6 = (c_5*((-k_clad/(htcs[i]*r_clad_o)) - np.log(r_clad_o))) + T_f_s[i]
+            else:
+                curP = Ps[i]
+                F = (1+(chi*Prs[i]*((presQualProp(curP, 0, "rho")/presQualProp(curP, 100, "rho"))-1)))**0.35
+                S = (1+(0.055*(F**0.1)*(Res[i]**0.16)))**(-1)
+                hnb = 55*((curP/critP)**0.12)*(qdoubles[i]**(2/3))*((-1*np.log10(curP/critP))**-0.55)*(MM_water**-0.5)
+                A1 = (S**2) * (htcs[i]**2)
+                A2 = (F**2) * (hnb**2)
+                L1 = A1+A2
+                L2 = -2*(A1*T_f_s[i] + A2*Tsats[i])
+                L3 = A1*(T_f_s[i]**2) + A2*(Tsats[i]**2) - ((k_clad*c_5/r_clad_o)**2)
+                T_w = ((-L2 +((L2**2 - (4*L1*L3))**0.5))/(2*L1))
+                c_6 = T_w - (c_5*np.log(r_clad_o))
+
+
+
             c_4 = (c_3 *np.log(r_clad_i)*((k_gap/k_clad)-1))+c_6
-            c_2 = (c_3*np.log(r_fuel)) + c_4 + (qlin/(4*np.pi*k_fuel))
+            c_2 = (c_3*np.log(r_fuel)) + c_4 + (qlins[i]/(4*np.pi*k_fuel))
 
             
             T_f_c.append(c_2)
-            
             T_c_in.append(c_3*np.log(r_clad_i) + c_4)
             T_c_out.append(c_5*np.log(r_clad_o) + c_6)
 
-
-        Tsats = []
-        for press in Ps:
-            Tsats.append(water.dew_point_at_pressure(press).temperature)
-
+            
         #ax.plot(qlins, zs,  label="q\'")
         #ax.plot(np.array(Ps)/(10**6), zs, label="Fluid Pressure")
 
         ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
         ax.plot(T_f_s, zs, label="Fluid Temperature")
-        #ax.plot(T_f_c, zs, label="Centerline Temperature")        
-        #ax.plot(Tsats, zs, label="Saturation Temperature")
+        ax.plot(T_f_c, zs, label="Centerline Temperature")        
+        ax.plot(Tsats, zs, label="Saturation Temperature")
         #ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
 
         #ax.plot(Xes, zs, label=f"Equilibrium Quality")
