@@ -160,6 +160,9 @@ def calcNewTemp(Xe, pressure):
 def dittusBoelter(k, re, pr):
     return 0.023 * re**(0.8) * pr**0.4 * (k/D_equiv)
 
+def liuWinterton(S, F, htc, hnb, tf, tsat, tw):
+    temporary = (F*htc*(tw-tf))**2 + (S*hnb*(tw-tsat))**2
+    return np.sqrt(temporary)
 #############################
 ###############################
 
@@ -280,20 +283,29 @@ if option == 1 :
         
             c_3 = (-qlins[i])/(2*np.pi*k_gap)
             c_5 = k_gap * c_3 / k_clad
-            if T_c_out[i-1] < Tsats[i-1]:
+            if T_c_out[i-1] <= Tsats[i-1]:
                 c_6 = (c_5*((-k_clad/(htcs[i]*r_clad_o)) - np.log(r_clad_o))) + T_f_s[i]
             else:
                 curP = Ps[i]
                 F = (1+(chi*Prs[i]*((presQualProp(curP, 0, "rho")/presQualProp(curP, 100, "rho"))-1)))**0.35
-                S = (1+(0.055*(F**0.1)*(Res[i]**0.16)))**(-1)
+                S = (1+(0.055*(F**0.1)*(Res[0]**0.16)))**(-1)
                 hnb = 55*((curP/critP)**0.12)*(qdoubles[i]**(2/3))*((-1*np.log10(curP/critP))**-0.55)*(MM_water**-0.5)
-                A1 = (S**2) * (htcs[i]**2)
-                A2 = (F**2) * (hnb**2)
+                '''tw = Tsats[i]
+                #print(S, F, hnb, tw, T_f_s[i], Tsats[i], liuWinterton(S, F, htcs[i], hnb, T_f_s[i], Tsats[i], tw))
+                
+                while (qdoubles[i] - liuWinterton(S, F, htcs[i], hnb, T_f_s[i], Tsats[i], tw) >=0.0001):
+                    tw = tw*1.001'''
+
+                A1 = (F**2) * (htcs[i]**2)
+                A2 = (S**2) * (hnb**2) #If F and S are flipped there is a discontinuity in the graph
                 L1 = A1+A2
                 L2 = -2*(A1*T_f_s[i] + A2*Tsats[i])
                 L3 = A1*(T_f_s[i]**2) + A2*(Tsats[i]**2) - ((k_clad*c_5/r_clad_o)**2)
-                T_w = ((-L2 +((L2**2 - (4*L1*L3))**0.5))/(2*L1))
-                c_6 = T_w - (c_5*np.log(r_clad_o))
+                #print(f"F = {F}, S = {S:0.2f}, hnb={hnb:0.2f}, A1 = {A1:0.2f}, A2 = {A2:0.2f}, L1 = {L1:0.2f}, L2 = {L2:0.2f}, L3 = {L3:0.2f}")
+                T_w_min = ((-L2-((L2**2 - (4*L1*L3))**0.5))/(2*L1))
+                T_w_plus = ((-L2 +((L2**2 - (4*L1*L3))**0.5))/(2*L1))
+                #print("Wall temp", T_w_plus)
+                c_6 = T_w_plus - (c_5*np.log(r_clad_o))
 
 
 
@@ -304,15 +316,17 @@ if option == 1 :
             T_f_c.append(c_2)
             T_c_in.append(c_3*np.log(r_clad_i) + c_4)
             T_c_out.append(c_5*np.log(r_clad_o) + c_6)
+            #print(c_5*np.log(r_clad_o) + c_6, qdoubles[i])
+
 
             
         #ax.plot(qlins, zs,  label="q\'")
         #ax.plot(np.array(Ps)/(10**6), zs, label="Fluid Pressure")
 
-        # ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
-        # ax.plot(T_f_s, zs, label="Fluid Temperature")
-        # ax.plot(T_f_c, zs, label="Centerline Temperature")        
-        # ax.plot(Tsats, zs, label="Saturation Temperature")
+        #ax.plot(T_c_out, zs, label="Outer Clad Surface Temperature")
+        #ax.plot(T_f_s, zs, label="Fluid Temperature")
+        ax.plot(T_f_c, zs, label="Centerline Temperature")        
+        #ax.plot(Tsats, zs, label="Saturation Temperature")
         # ax.plot(T_c_in, zs, label="Inner Clad Surface Temperature")
 
         # ax.plot(Xes, zs, label=f"Equilibrium Quality")
