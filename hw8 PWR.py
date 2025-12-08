@@ -62,7 +62,6 @@ def tempQualProp(temp, qual, prop):
     elif prop == "k":
         return water_state.conductivity
     
-
 def presQualProp(pres, qual, prop):
     """
     Parameters
